@@ -1,8 +1,18 @@
 // SmartThings JSON API SmartApp required
-// https://github.com/jnewland/SmartThings/blob/master/JSON.groovy
+// https://github.com/alindeman/homebridge-smartthings/blob/master/JSON.groovy
 //
-var types = require("../api").homebridge.hapLegacyTypes;
 var request = require("request");
+
+var Service, Characteristic, Accessory, uuid;
+
+module.exports = function(homebridge) {
+  Service = homebridge.hap.Service;
+  Characteristic = homebridge.hap.Characteristic;
+  Accessory = homebridge.hap.Accessory;
+  uuid = homebridge.hap.uuid;
+
+  homebridge.registerPlatform("homebridge-smartthings", "SmartThings", SmartThingsPlatform);
+}
 
 function SmartThingsPlatform(log, config){
   this.log          = log;
@@ -22,24 +32,20 @@ SmartThingsPlatform.prototype = {
       json: true
     }, function(err, response, json) {
       if (!err && response.statusCode == 200) {
-        if (json['switches'] != undefined) {
-          json['switches'].map(function(s) {
-            accessory = new SmartThingsAccessory(that.log, s.name, s.commands);
-            foundAccessories.push(accessory);
-          })
-        }
-        if (json['hues'] != undefined) {
-          json['hues'].map(function(s) {
-            accessory = new SmartThingsAccessory(that.log, s.name, s.commands);
-            foundAccessories.push(accessory);
-          })
-        }
+        ['switches', 'hues', 'thermostats'].forEach(function(key) {
+          if (json[key] != undefined) {
+            json[key].forEach(function(thing) {
+              accessory = new SmartThingsAccessory(that.log, thing.name, thing.commands);
+              foundAccessories.push(accesstory);
+            });
+          }
+        });
+
         callback(foundAccessories);
       } else {
         that.log("There was a problem authenticating with SmartThings.");
       }
     });
-
   }
 }
 
@@ -50,193 +56,95 @@ function SmartThingsAccessory(log, name, commands) {
   this.log      = log;
 }
 
-SmartThingsAccessory.prototype = {
+SmartThingsAccessory.prototype.getServices = function() {
+  var services = [];
+  if (commands['on'] && commands['setLevel']) {
+    var lightbulbService = new Service.Lightbulb(this.name);
+    lightbulbService.getCharacteristic(Characteristic.On)
+      .on('set', this.setOn.bind(this))
+      .on('get', this.getOn.bind(this));
+    lightbulbService.getCharacteristic(Characteristic.Brightness)
+      .on('set', this.setBrightness.bind(this))
+      .on('get', this.getBrightness.bind(this))
+  } else if (commands['on']) {
+    var switchService = new Service.Switch(this.name);
+    switchService.getCharacteristic(Characteristic.On)
+      .on('set', this.setOn.bind(this))
+      .on('get', this.getOn.bind(this));
 
-  command: function(c,value) {
-    this.log(this.name + " sending command " + c);
-    var url = this.commands[c];
-    if (value != undefined) {
-      url = this.commands[c] + "&value="+value
-    }
-
-    var that = this;
-    request.put({
-      url: url
-    }, function(err, response) {
-      if (err) {
-        that.log("There was a problem sending command " + c + " to" + that.name);
-        that.log(url);
-      } else {
-        that.log(that.name + " sent command " + c);
-      }
-    })
-  },
-
-  informationCharacteristics: function() {
-    return [
-      {
-        cType: types.NAME_CTYPE,
-        onUpdate: null,
-        perms: ["pr"],
-        format: "string",
-        initialValue: this.name,
-        supportEvents: false,
-        supportBonjour: false,
-        manfDescription: "Name of the accessory",
-        designedMaxLength: 255
-      },{
-        cType: types.MANUFACTURER_CTYPE,
-        onUpdate: null,
-        perms: ["pr"],
-        format: "string",
-        initialValue: "SmartThings",
-        supportEvents: false,
-        supportBonjour: false,
-        manfDescription: "Manufacturer",
-        designedMaxLength: 255
-      },{
-        cType: types.MODEL_CTYPE,
-        onUpdate: null,
-        perms: ["pr"],
-        format: "string",
-        initialValue: "Rev-1",
-        supportEvents: false,
-        supportBonjour: false,
-        manfDescription: "Model",
-        designedMaxLength: 255
-      },{
-        cType: types.SERIAL_NUMBER_CTYPE,
-        onUpdate: null,
-        perms: ["pr"],
-        format: "string",
-        initialValue: "A1S2NASF88EW",
-        supportEvents: false,
-        supportBonjour: false,
-        manfDescription: "SN",
-        designedMaxLength: 255
-      },{
-        cType: types.IDENTIFY_CTYPE,
-        onUpdate: null,
-        perms: ["pw"],
-        format: "bool",
-        initialValue: false,
-        supportEvents: false,
-        supportBonjour: false,
-        manfDescription: "Identify Accessory",
-        designedMaxLength: 1
-      }
-    ]
-  },
-
-  controlCharacteristics: function(that) {
-    cTypes = [{
-      cType: types.NAME_CTYPE,
-      onUpdate: null,
-      perms: ["pr"],
-      format: "string",
-      initialValue: this.name,
-      supportEvents: true,
-      supportBonjour: false,
-      manfDescription: "Name of service",
-      designedMaxLength: 255
-    }]
-
-    if (this.commands['on'] != undefined) {
-      cTypes.push({
-        cType: types.POWER_STATE_CTYPE,
-        onUpdate: function(value) {
-          if (value == 0) {
-            that.command("off")
-          } else {
-            that.command("on")
-          }
-        },
-        perms: ["pw","pr","ev"],
-        format: "bool",
-        initialValue: 0,
-        supportEvents: true,
-        supportBonjour: false,
-        manfDescription: "Change the power state",
-        designedMaxLength: 1
-      })
-    }
-
-    if (this.commands['on'] != undefined) {
-      cTypes.push({
-        cType: types.BRIGHTNESS_CTYPE,
-        onUpdate: function(value) { that.command("setLevel", value); },
-        perms: ["pw","pr","ev"],
-        format: "int",
-        initialValue:  0,
-        supportEvents: true,
-        supportBonjour: false,
-        manfDescription: "Adjust Brightness of Light",
-        designedMinValue: 0,
-        designedMaxValue: 100,
-        designedMinStep: 1,
-        unit: "%"
-      })
-    }
-
-    if (this.commands['setHue'] != undefined) {
-      cTypes.push({
-        cType: types.HUE_CTYPE,
-        onUpdate: function(value) { that.command("setHue", value); },
-        perms: ["pw","pr","ev"],
-        format: "int",
-        initialValue:  0,
-        supportEvents: true,
-        supportBonjour: false,
-        manfDescription: "Adjust Hue of Light",
-        designedMinValue: 0,
-        designedMaxValue: 360,
-        designedMinStep: 1,
-        unit: "arcdegrees"
-      })
-    }
-
-    if (this.commands['setSaturation'] != undefined) {
-      cTypes.push({
-        cType: types.SATURATION_CTYPE,
-        onUpdate: function(value) { that.command("setSaturation", value); },
-        perms: ["pw","pr","ev"],
-        format: "int",
-        initialValue:  0,
-        supportEvents: true,
-        supportBonjour: false,
-        manfDescription: "Adjust Brightness of Light",
-        designedMinValue: 0,
-        designedMaxValue: 100,
-        designedMinStep: 1,
-        unit: "%"
-      })
-    }
-
-    return cTypes
-  },
-
-  sType: function() {
-    if (this.commands['setLevel'] != undefined) {
-      return types.LIGHTBULB_STYPE
-    } else {
-      return types.SWITCH_STYPE
-    }
-  },
-
-  getServices: function() {
-    var that = this;
-    var services = [{
-      sType: types.ACCESSORY_INFORMATION_STYPE,
-      characteristics: this.informationCharacteristics(),
-    },
-    {
-      sType: this.sType(),
-      characteristics: this.controlCharacteristics(that)
-    }];
-    this.log("Loaded services for " + this.name)
-    return services;
+    services.push(switchService);
   }
-};
+}
 
-module.exports.accessory = SmartThingsAccessory;
-module.exports.platform = SmartThingsPlatform;
+SmartThingsAccessory.prototype.setOn = function(value, cb) {
+  if (value == 0) {
+    this.command("off", cb);
+  } else {
+    this.command("on", cb);
+  }
+}
+
+SmartThingsAccessory.prototype.getOn = function(cb) {
+  this.currentValue("switch", function(err, value) {
+    if (err) {
+      if (cb) cb(err);
+    } else if (value === "on") {
+      cb(null, 1);
+    } else {
+      cb(null, 0);
+    }
+  });
+}
+
+SmartThingsAccessory.prototype.setBrightness = function(value, cb) {
+  this.command("setLevel", value, cb);
+}
+
+SmartThingsAccessory.prototype.getBrightness = function(cb) {
+  this.currentValue("level", cb);
+}
+
+SmartThingsAccessory.prototype.command = function(command, value, cb) {
+  if (typeof(value) === "function") {
+    cb = value;
+    value = undefined;
+  }
+
+  var url = this.commands[command];
+  if (value != undefined) {
+      url += "&value=" + encodeURIComponent(value)
+  }
+
+  this.log(this.name + " sending command " + command + "(" + value + ")");
+
+  var that = this;
+  request.put({
+    url: url + "&value=" + encodeURIComponent(value)
+  }, function(err, response, body) {
+    if (err) {
+      that.log(that.name + " error sending command: " + url);
+      if (cb) cb("error sending command");
+    } else {
+      if (cb) cb(null);
+    }
+  });
+}
+
+SmartThingsAccessory.prototype.currentValue = function(attribute, cb) {
+  var url = this.attributes[attribute];
+  request.get({
+    url: url
+  }, function(err, response, body) {
+    if (err || response.statusCode != 200) {
+      that.log(that.name + " error getting attribute: " + url);
+      if (cb) cb("error getting attribute");
+    } else {
+      var obj = JSON.parse(body);
+      if (obj.currentValue) {
+        if (cb) cb(null, obj.currentValue);
+      } else {
+        if (cb) cb("current value not available");
+      }
+    }
+  });
+}
