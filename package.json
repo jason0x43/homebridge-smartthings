@@ -1,0 +1,27 @@
+{
+  "name": "homebridge-smartthings",
+  "version": "0.0.1",
+  "description": "SmartThings plugin for homebridge",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alindeman/homebridge-smartthings.git"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "smartthings"
+  ],
+  "engines": {
+    "node": ">=0.12.0",
+    "homebridge": ">=0.2.5"
+  },
+  "license": "Apache-2.0",
+  "preferGlobal": true,
+  "bugs": {
+    "url": "https://github.com/alindeman/homebridge-smartthings/issues"
+  },
+  "homepage": "https://github.com/alindeman/homebridge-smartthings#readme",
+  "dependencies": {
+    "request": "^2.65.0"
+  }
+}
