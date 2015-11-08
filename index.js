@@ -59,6 +59,14 @@ function SmartThingsAccessory(log, name, commands) {
 SmartThingsAccessory.prototype.getServices = function() {
   var services = [];
 
+  var accessoryInformationService = new Service.AccessoryInformation();
+  accessoryInformationService
+    .setCharacteristic(Characteristic.Name, this.name)
+    .setCharacteristic(Characteristic.Manufacturer, "SmartThings")
+    .setCharacteristic(Characteristic.Model, "Rev-1")
+    .setCharacteristic(Characteristic.SerialNumber, "A1S2NASF88EW");
+  services.push(accessoryInformationService);
+
   if (this.commands['on'] && this.commands['setLevel']) {
     var lightbulbService = new Service.Lightbulb(this.name);
     lightbulbService.getCharacteristic(Characteristic.On)
