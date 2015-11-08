@@ -52,6 +52,7 @@ def copyConfig() {
         section("Select devices to include in the /devices API call") {
             input "switches", "capability.switch", title: "Switches", multiple: true, required: false
             input "hues", "capability.colorControl", title: "Hues", multiple: true, required: false
+            input "thermostats", "capability.thermostat", title: "Thermostats", multiple: true, required: false
         }
 
         section() {
@@ -94,7 +95,8 @@ def deviceCommandMap(device, type) {
 def authorizedDevices() {
     [
         switches: switches,
-        hues: hues
+        hues: hues,
+        thermostats: thermostats,
     ]
 }
 
