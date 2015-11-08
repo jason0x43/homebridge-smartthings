@@ -92,6 +92,16 @@ def deviceCommandMap(device, type) {
   }
 }
 
+def deviceAttributeMap(device, type) {
+  device.supportedAttributes.collectEntries { attribute->
+    def attributeUrl = "https://graph.api.smartthings.com/api/smartapps/installations/${app.id}/${type}/${device.id}/attribute/${attribute.name}?access_token=${state.accessToken}"
+
+    [
+      (attribute.name): attributeUrl
+    ]
+  }
+}
+
 def authorizedDevices() {
     [
         switches: switches,
@@ -106,7 +116,8 @@ def renderDevices() {
             (devices.key): devices.value.collect { device->
                 [
                     name: device.displayName,
-                    commands: deviceCommandMap(device, devices.key)
+                    commands: deviceCommandMap(device, devices.key),
+                    attributes: deviceAttributeMap(device, devices.key)
                 ]
             }
         ]
@@ -130,15 +141,28 @@ def deviceCommand() {
   }
 }
 
+def deviceAttribute() {
+  def device    = authorizedDevices()[params.type].find { it.id == params.id }
+  def attribute = params.attribute
+  if (!device) {
+      httpError(404, "Device not found")
+  } else {
+      def currentValue = device.currentValue(attribute)
+      [currentValue: currentValue]
+  }
+}
+
 mappings {
     if (!params.access_token || (params.access_token && params.access_token != state.accessToken)) {
-        path("/devices")                      { action: [GET: "authError"] }
-        path("/config")                       { action: [GET: "authError"] }
-        path("/:type/:id/command/:command")   { action: [PUT: "authError"] }
+        path("/devices")                        { action: [GET: "authError"] }
+        path("/config")                         { action: [GET: "authError"] }
+        path("/:type/:id/command/:command")     { action: [PUT: "authError"] }
+        path("/:type/:id/attribute/:attribute") { action: [GET: "authError"] }
     } else {
-        path("/devices")                      { action: [GET: "renderDevices"]  }
-        path("/config")                       { action: [GET: "renderConfig"]  }
-        path("/:type/:id/command/:command")   { action: [PUT: "deviceCommand"] }
+        path("/devices")                        { action: [GET: "renderDevices"]  }
+        path("/config")                         { action: [GET: "renderConfig"]  }
+        path("/:type/:id/command/:command")     { action: [PUT: "deviceCommand"] }
+        path("/:type/:id/attribute/:attribute") { action: [GET: "deviceAttribute"] }
     }
 }
 
