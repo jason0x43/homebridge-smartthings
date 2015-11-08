@@ -33,10 +33,10 @@ SmartThingsPlatform.prototype = {
     }, function(err, response, json) {
       if (!err && response.statusCode == 200) {
         ['switches', 'hues', 'thermostats'].forEach(function(key) {
-          if (json[key] != undefined) {
+          if (json[key]) {
             json[key].forEach(function(thing) {
-              accessory = new SmartThingsAccessory(that.log, thing.name, thing.commands);
-              foundAccessories.push(accesstory);
+              var accessory = new SmartThingsAccessory(that.log, thing.name, thing.commands);
+              foundAccessories.push(accessory);
             });
           }
         });
@@ -58,7 +58,8 @@ function SmartThingsAccessory(log, name, commands) {
 
 SmartThingsAccessory.prototype.getServices = function() {
   var services = [];
-  if (commands['on'] && commands['setLevel']) {
+
+  if (this.commands['on'] && this.commands['setLevel']) {
     var lightbulbService = new Service.Lightbulb(this.name);
     lightbulbService.getCharacteristic(Characteristic.On)
       .on('set', this.setOn.bind(this))
@@ -66,7 +67,18 @@ SmartThingsAccessory.prototype.getServices = function() {
     lightbulbService.getCharacteristic(Characteristic.Brightness)
       .on('set', this.setBrightness.bind(this))
       .on('get', this.getBrightness.bind(this))
-  } else if (commands['on']) {
+
+    if (this.commands['setHue']) {
+      lightbulbService.getCharacteristic(Characteristic.Hue)
+        .on('set', this.setHue.bind(this))
+        .on('get', this.getHue.bind(this))
+    }
+    if (this.commands['setSaturation']) {
+      lightbulbService.getCharacteristic(Characteristic.Saturation)
+        .on('set', this.setSaturation.bind(this))
+        .on('get', this.getSaturation.bind(this))
+    }
+  } else if (this.commands['on']) {
     var switchService = new Service.Switch(this.name);
     switchService.getCharacteristic(Characteristic.On)
       .on('set', this.setOn.bind(this))
@@ -74,6 +86,8 @@ SmartThingsAccessory.prototype.getServices = function() {
 
     services.push(switchService);
   }
+
+  return services;
 }
 
 SmartThingsAccessory.prototype.setOn = function(value, cb) {
@@ -104,6 +118,22 @@ SmartThingsAccessory.prototype.getBrightness = function(cb) {
   this.currentValue("level", cb);
 }
 
+SmartThingsAccessory.prototype.setHue = function(value, cb) {
+  this.command("setHue", value, cb);
+}
+
+SmartThingsAccessory.prototype.getHue = function(cb) {
+  this.currentValue("hue", cb);
+}
+
+SmartThingsAccessory.prototype.setSaturation = function(value, cb) {
+  this.command("setSaturation", value, cb);
+}
+
+SmartThingsAccessory.prototype.getSaturation = function(cb) {
+  this.currentValue("saturation", cb);
+}
+
 SmartThingsAccessory.prototype.command = function(command, value, cb) {
   if (typeof(value) === "function") {
     cb = value;
@@ -111,7 +141,7 @@ SmartThingsAccessory.prototype.command = function(command, value, cb) {
   }
 
   var url = this.commands[command];
-  if (value != undefined) {
+  if (value) {
       url += "&value=" + encodeURIComponent(value)
   }
 
