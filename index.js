@@ -28,33 +28,42 @@ SmartThingsPlatform.prototype = {
     var foundAccessories = [];
 
     request.get({
-      url: "https://graph.api.smartthings.com/api/smartapps/installations/"+this.app_id+"/devices?access_token="+this.access_token,
+      url: "https://graph.api.smartthings.com/api/smartapps/installations/"+this.app_id+"/location?access_token="+this.access_token,
       json: true
-    }, function(err, response, json) {
-      if (!err && response.statusCode == 200) {
-        ['switches', 'hues', 'thermostats'].forEach(function(key) {
-          if (json[key]) {
-            json[key].forEach(function(thing) {
-              var accessory = new SmartThingsAccessory(that.log, thing.name, thing.commands, thing.attributes);
-              foundAccessories.push(accessory);
+    }, function(err, response, location) {
+      if (err || response.statusCode != 200) {
+        that.log("Error starting StartThings: " + err);
+      } else {
+        request.get({
+          url: "https://graph.api.smartthings.com/api/smartapps/installations/"+this.app_id+"/devices?access_token="+this.access_token,
+          json: true
+        }, function(err, response, json) {
+          if (err || response.statusCode != 200) {
+            that.log("Error starting StartThings: " + err);
+          } else {
+            ['switches', 'hues', 'thermostats'].forEach(function(key) {
+              if (json[key]) {
+                json[key].forEach(function(thing) {
+                  var accessory = new SmartThingsAccessory(that.log, location, thing.name, thing.commands, thing.attributes);
+                  foundAccessories.push(accessory);
+                });
+              }
             });
+
+            callback(foundAccessories);
           }
         });
-
-        callback(foundAccessories);
-      } else {
-        that.log("There was a problem authenticating with SmartThings.");
       }
     });
   }
 }
 
-function SmartThingsAccessory(log, name, commands, attributes) {
-  // device info
+function SmartThingsAccessory(log, location, name, commands, attributes) {
+  this.log        = log;
+  this.location   = location;
   this.name       = name;
   this.commands   = commands;
   this.attributes = attributes;
-  this.log        = log;
 }
 
 SmartThingsAccessory.prototype.getServices = function() {
@@ -96,6 +105,22 @@ SmartThingsAccessory.prototype.getServices = function() {
       .on('get', this.getOn.bind(this));
 
     services.push(switchService);
+  } else if (this.commands['setHeatingSetpoint'] || this.commands['setCoolingSetpoint']) {
+    var thermostatService = new Service.Thermostat(this.name);
+    thermostatService.getCharacteristic(Characteristic.CurrentTemperature)
+      .on('get', this.getCurrentTemperature.bind(this));
+    thermostatService.getCharacteristic(Characteristic.TargetTemperature)
+      .on('get', this.getTargetTemperature.bind(this))
+      .on('set', this.setTargetTemperature.bind(this));
+    thermostatService.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+      .on('get', this.getCurrentHeatingCoolingState.bind(this));
+    thermostatService.getCharacteristic(Characteristic.TargetHeatingCoolingState)
+      .on('get', this.getTargetHeatingCoolingState.bind(this))
+      .on('set', this.setTargetHeatingCoolingState.bind(this));
+    thermostatService.getCharacteristic(Characteristic.TemperatureDisplayUnits)
+      .on('get', this.getTemperatureDisplayUnits.bind(this));
+
+    services.push(thermostatService);
   }
 
   return services;
@@ -143,6 +168,93 @@ SmartThingsAccessory.prototype.setSaturation = function(value, cb) {
 
 SmartThingsAccessory.prototype.getSaturation = function(cb) {
   this.currentValue("saturation", cb);
+}
+
+SmartThingsAccessory.prototype.getCurrentTemperature = function(cb) {
+  this.currentValue("temperature", cb);
+}
+
+SmartThingsAccessory.prototype.getTargetTemperature = function(cb) {
+  this.getTargetHeatingCoolingState(function(err, mode) {
+    if (err) {
+      if (cb) cb(err);
+    } else if (mode == Characteristic.TargetHeatingCoolingState.COOL) {
+      this.currentValue("coolingSetpoint", cb);
+    } else if (mode == Characteristic.TargetHeatingCoolingState.HEAT) {
+      this.currentValue("heatingSetpoint", cb);
+    } else if (mode == Characteristic.TargetHeatingCoolingState.AUTO) {
+      // TODO
+      if (cb) cb("unimplemented");
+    } else {
+      if (cb) cb(null, undefined);
+    }
+  });
+}
+
+SmartThingsAccessory.prototype.setTargetTemperature = function(value, cb) {
+  this.getTargetHeatingCoolingState(function(err, mode) {
+    if (err) {
+      if (cb) cb(err);
+    } else if (mode == Characteristic.TargetHeatingCoolingState.COOL) {
+      this.command("setCoolingSetpoint", value, cb);
+    } else if (mode == Characteristic.TargetHeatingCoolingState.HEAT) {
+      this.command("setHeatingSetpoint", value, cb);
+    } else if (mode == Characteristic.TargetHeatingCoolingState.AUTO) {
+      // TODO
+      if (cb) cb("unimplemented");
+    } else {
+      if (cb) cb("target state is off");
+    }
+  });
+}
+
+SmartThingsAccessory.prototype.getCurrentHeatingCoolingState = function(cb) {
+  this.currentValue("thermostatOperatingState", function(err, mode) {
+    if (err) {
+      if (cb) cb(err);
+    } else if (mode == "cooling") {
+      if (cb) cb(null, Characteristic.CurrentHeatingCoolingState.COOL);
+    } else if (mode == "heating") {
+      if (cb) cb(null, Characteristic.CurrentHeatingCoolingState.HEAT);
+    } else {
+      if (cb) cb(null, Characteristic.CurrentHeatingCoolingState.OFF);
+    }
+  });
+}
+
+SmartThingsAccessory.prototype.getTargetHeatingCoolingState = function(cb) {
+  this.currentValue("thermostatMode", function(err, mode) {
+    if (err) {
+      if (cb) cb(err);
+    } else if (mode == "cool") {
+      if (cb) cb(null, Characteristic.TargetHeatingCoolingState.COOL);
+    } else if (mode == "heat") {
+      if (cb) cb(null, Characteristic.TargetHeatingCoolingState.HEAT);
+    } else if (mode == "auto") {
+      if (cb) cb(null, Characteristic.TargetHeatingCoolingState.AUTO);
+    } else {
+      if (cb) cb(null, Characteristic.TargetHeatingCoolingState.OFF);
+    }
+  });
+}
+
+SmartThingsAccessory.prototype.setTargetHeatingCoolingState = function(value, cb) {
+  var cmdValue = null;
+  if (value == Characteristic.TargetHeatingCoolingState.COOL) {
+    cmdValue = "cool";
+  } else if (value == Characteristic.TargetHeatingCoolingState.HEAT) {
+    cmdValue = "heat";
+  } else if (value == Characteristic.TargetHeatingCoolingState.AUTO) {
+    cmdValue = "range";
+  } else if (value == Characteristic.TargetHeatingCoolingState.OFF) {
+    cmdValue = "off";
+  }
+
+  if (cmdValue) {
+    this.command("setThermostatMode", cmdValue, cb);
+  } else {
+    if (cb) cb("unknown target heating cooling state");
+  }
 }
 
 SmartThingsAccessory.prototype.command = function(command, value, cb) {
