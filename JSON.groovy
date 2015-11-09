@@ -83,6 +83,17 @@ def renderConfig() {
     render contentType: "text/plain", data: configString
 }
 
+def renderLocation() {
+  [
+    latitude: location.latitude,
+    longitude: location.longitude,
+    mode: location.mode,
+    name: location.name,
+    temperature_scale: location.temperatureScale,
+    zip_code: location.zipCode
+  ]
+}
+
 def deviceCommandMap(device, type) {
   device.supportedCommands.collectEntries { command->
       def commandUrl = "https://graph.api.smartthings.com/api/smartapps/installations/${app.id}/${type}/${device.id}/command/${command.name}?access_token=${state.accessToken}"
@@ -157,11 +168,13 @@ mappings {
     if (!params.access_token || (params.access_token && params.access_token != state.accessToken)) {
         path("/devices")                        { action: [GET: "authError"] }
         path("/config")                         { action: [GET: "authError"] }
+        path("/location")                       { action: [GET: "authError"] }
         path("/:type/:id/command/:command")     { action: [PUT: "authError"] }
         path("/:type/:id/attribute/:attribute") { action: [GET: "authError"] }
     } else {
         path("/devices")                        { action: [GET: "renderDevices"]  }
         path("/config")                         { action: [GET: "renderConfig"]  }
+        path("/location")                       { action: [GET: "renderLocation"] }
         path("/:type/:id/command/:command")     { action: [PUT: "deviceCommand"] }
         path("/:type/:id/attribute/:attribute") { action: [GET: "deviceAttribute"] }
     }
