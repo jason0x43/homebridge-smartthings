@@ -86,6 +86,8 @@ SmartThingsAccessory.prototype.getServices = function() {
         .on('set', this.setSaturation.bind(this))
         .on('get', this.getSaturation.bind(this))
     }
+
+    services.push(lightbulbService);
   } else if (this.commands['on']) {
     var switchService = new Service.Switch(this.name);
     switchService.getCharacteristic(Characteristic.On)
