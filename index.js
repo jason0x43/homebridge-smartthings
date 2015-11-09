@@ -161,8 +161,7 @@ SmartThingsAccessory.prototype.command = function(command, value, cb) {
 
   var that = this;
   request.put({
-    url: url
-  }, {
+    url: url,
     json: true,
     body: body
   }, function(err, response, body) {
