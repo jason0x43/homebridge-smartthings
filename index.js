@@ -257,6 +257,11 @@ SmartThingsAccessory.prototype.setTargetHeatingCoolingState = function(value, cb
   }
 }
 
+SmartThings.prototype.getTemperatureDisplayUnits = function(cb) {
+  // TODO
+  if (cb) cb(null, Characteristic.TemperatureDisplayUnits.FAHRENHEIT);
+}
+
 SmartThingsAccessory.prototype.command = function(command, value, cb) {
   if (typeof(value) === "function") {
     cb = value;
