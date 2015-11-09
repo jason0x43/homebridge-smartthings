@@ -35,7 +35,7 @@ SmartThingsPlatform.prototype = {
         ['switches', 'hues', 'thermostats'].forEach(function(key) {
           if (json[key]) {
             json[key].forEach(function(thing) {
-              var accessory = new SmartThingsAccessory(that.log, thing.name, thing.commands);
+              var accessory = new SmartThingsAccessory(that.log, thing.name, thing.commands, thing.attributes);
               foundAccessories.push(accessory);
             });
           }
@@ -49,11 +49,12 @@ SmartThingsPlatform.prototype = {
   }
 }
 
-function SmartThingsAccessory(log, name, commands) {
+function SmartThingsAccessory(log, name, commands, attributes) {
   // device info
-  this.name     = name;
-  this.commands = commands;
-  this.log      = log;
+  this.name       = name;
+  this.commands   = commands;
+  this.attributes = attributes;
+  this.log        = log;
 }
 
 SmartThingsAccessory.prototype.getServices = function() {
