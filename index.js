@@ -152,15 +152,19 @@ SmartThingsAccessory.prototype.command = function(command, value, cb) {
   }
 
   var url = this.commands[command];
+  var body = {};
   if (value) {
-      url += "&value=" + encodeURIComponent(value)
+    body.value = value;
   }
 
   this.log(this.name + " sending command " + command + "(" + value + ")");
 
   var that = this;
   request.put({
-    url: url + "&value=" + encodeURIComponent(value)
+    url: url
+  }, {
+    json: true,
+    body: body
   }, function(err, response, body) {
     if (err) {
       that.log(that.name + " error sending command: " + url);

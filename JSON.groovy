@@ -133,8 +133,9 @@ def deviceCommand() {
   if (!device) {
       httpError(404, "Device not found")
   } else {
-      if (params.value) {
-        device."$command"(params.value)
+      def value = request.JSON?.value
+      if (value) {
+        device."$command"(value)
       } else {
         device."$command"()
       }
