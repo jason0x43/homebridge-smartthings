@@ -28,14 +28,14 @@ SmartThingsPlatform.prototype = {
     var foundAccessories = [];
 
     request.get({
-      url: "https://graph.api.smartthings.com/api/smartapps/installations/"+this.app_id+"/location?access_token="+this.access_token,
+      url: "https://graph.api.smartthings.com/api/smartapps/installations/"+that.app_id+"/location?access_token="+that.access_token,
       json: true
     }, function(err, response, location) {
       if (err || response.statusCode != 200) {
         that.log("Error starting StartThings: " + err);
       } else {
         request.get({
-          url: "https://graph.api.smartthings.com/api/smartapps/installations/"+this.app_id+"/devices?access_token="+this.access_token,
+          url: "https://graph.api.smartthings.com/api/smartapps/installations/"+that.app_id+"/devices?access_token="+that.access_token,
           json: true
         }, function(err, response, json) {
           if (err || response.statusCode != 200) {
