@@ -257,7 +257,7 @@ SmartThingsAccessory.prototype.setTargetHeatingCoolingState = function(value, cb
   }
 }
 
-SmartThings.prototype.getTemperatureDisplayUnits = function(cb) {
+SmartThingsAccessory.prototype.getTemperatureDisplayUnits = function(cb) {
   // TODO
   if (cb) cb(null, Characteristic.TemperatureDisplayUnits.FAHRENHEIT);
 }
