@@ -175,13 +175,14 @@ SmartThingsAccessory.prototype.getCurrentTemperature = function(cb) {
 }
 
 SmartThingsAccessory.prototype.getTargetTemperature = function(cb) {
+  var that = this;
   this.getTargetHeatingCoolingState(function(err, mode) {
     if (err) {
       if (cb) cb(err);
     } else if (mode == Characteristic.TargetHeatingCoolingState.COOL) {
-      this.currentValue("coolingSetpoint", cb);
+      that.currentValue("coolingSetpoint", cb);
     } else if (mode == Characteristic.TargetHeatingCoolingState.HEAT) {
-      this.currentValue("heatingSetpoint", cb);
+      that.currentValue("heatingSetpoint", cb);
     } else if (mode == Characteristic.TargetHeatingCoolingState.AUTO) {
       // TODO
       if (cb) cb("unimplemented");
@@ -192,13 +193,14 @@ SmartThingsAccessory.prototype.getTargetTemperature = function(cb) {
 }
 
 SmartThingsAccessory.prototype.setTargetTemperature = function(value, cb) {
+  var that = this;
   this.getTargetHeatingCoolingState(function(err, mode) {
     if (err) {
       if (cb) cb(err);
     } else if (mode == Characteristic.TargetHeatingCoolingState.COOL) {
-      this.command("setCoolingSetpoint", value, cb);
+      that.command("setCoolingSetpoint", value, cb);
     } else if (mode == Characteristic.TargetHeatingCoolingState.HEAT) {
-      this.command("setHeatingSetpoint", value, cb);
+      that.command("setHeatingSetpoint", value, cb);
     } else if (mode == Characteristic.TargetHeatingCoolingState.AUTO) {
       // TODO
       if (cb) cb("unimplemented");
