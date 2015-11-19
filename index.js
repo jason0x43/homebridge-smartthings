@@ -28,32 +28,35 @@ SmartThingsPlatform.prototype = {
 		var foundAccessories = [];
 
 		request.get({
-			url: 'https://graph.api.smartthings.com/api/smartapps/installations/'+self.app_id+'/location?access_token='+self.access_token,
+			url: 'https://graph.api.smartthings.com/api/smartapps/installations/' + this.app_id +
+				'/location?access_token=' + this.access_token,
 			json: true
-		}, function (err, response, location) {
-			if (err || response.statusCode != 200) {
-				self.log('Error starting StartThings: ' + err);
+		}, function (error, response, location) {
+			if (error || response.statusCode != 200) {
+				self.log('Error starting StartThings: ' + error);
 			}
 			else {
 				request.get({
-					url: 'https://graph.api.smartthings.com/api/smartapps/installations/'+self.app_id+'/devices?access_token='+self.access_token,
+					url: 'https://graph.api.smartthings.com/api/smartapps/installations/' + self.app_id +
+						'/devices?access_token=' + self.access_token,
 					json: true
-				}, function (err, response, json) {
-					if (err || response.statusCode != 200) {
-						self.log('Error starting StartThings: ' + err);
+				}, function (error, response, json) {
+					if (error || response.statusCode != 200) {
+						self.log('Error starting StartThings: ' + error);
 					}
 					else {
 						[
 							'switches',
+							'doors',
 							'hues',
 							'thermostats'
-						].forEach(function (key) {
-							if (json[key]) {
-								json[key].forEach(function (thing) {
-									var accessory = new SmartThingsAccessory(self.log, location, thing.name, thing.commands, thing.attributes);
-									foundAccessories.push(accessory);
-								});
-							}
+						].filter(function (key) {
+							return json[key];
+						}).forEach(function (key) {
+							json[key].forEach(function (thing) {
+								var accessory = new SmartThingsAccessory(self.log, location, thing.name, thing.commands, thing.attributes);
+								foundAccessories.push(accessory);
+							});
 						});
 
 						callback(foundAccessories);
@@ -93,7 +96,6 @@ SmartThingsAccessory.prototype.getServices = function () {
 		lightbulbService.getCharacteristic(Characteristic.Brightness)
 			.on('set', this.setBrightness.bind(this))
 			.on('get', this.getBrightness.bind(this))
-
 		if (commands.setHue) {
 			lightbulbService.getCharacteristic(Characteristic.Hue)
 				.on('set', this.setHue.bind(this))
@@ -104,7 +106,6 @@ SmartThingsAccessory.prototype.getServices = function () {
 				.on('set', this.setSaturation.bind(this))
 				.on('get', this.getSaturation.bind(this))
 		}
-
 		services.push(lightbulbService);
 	}
 	else if (commands.on) {
@@ -112,8 +113,16 @@ SmartThingsAccessory.prototype.getServices = function () {
 		switchService.getCharacteristic(Characteristic.On)
 			.on('set', this.setOn.bind(this))
 			.on('get', this.getOn.bind(this));
-
 		services.push(switchService);
+	}
+	else if (commands.open) {
+		var doorService = new Service.GarageDoorOpener(this.name);
+		doorService.getCharacteristic(Characteristic.CurrentDoorState)
+			.on('get', this.getCurrentDoorState.bind(this));
+		doorService.getCharacteristic(Characteristic.TargetDoorState)
+			.on('set', this.setTargetDoorState.bind(this))
+			.on('get', this.getTargetDoorState.bind(this));
+		services.push(doorService);
 	}
 	else if (commands.setHeatingSetpoint || commands.setCoolingSetpoint) {
 		var thermostatService = new Service.Thermostat(this.name);
@@ -129,31 +138,52 @@ SmartThingsAccessory.prototype.getServices = function () {
 			.on('set', this.setTargetHeatingCoolingState.bind(this));
 		thermostatService.getCharacteristic(Characteristic.TemperatureDisplayUnits)
 			.on('get', this.getTemperatureDisplayUnits.bind(this));
-
 		services.push(thermostatService);
 	}
 
 	return services;
 }
 
+SmartThingsAccessory.prototype.setOpen = function (value, callback) {
+	this.command(value ? 'open' : 'closed', callback);
+}
+
+SmartThingsAccessory.prototype.getOpen = function (callback) {
+	callback = callback || function () {};
+	this.currentValue('door', function (error, value) {
+		if (error) {
+			callback(error);
+		}
+		else {
+			switch (value) {
+			case 'open':
+				callback(null, true);
+				break;
+			default:
+				callback(null, false);
+			}
+		}
+	});
+}
+
 SmartThingsAccessory.prototype.setOn = function (value, callback) {
-	this.command(value === 0 ? 'off' : 'on', callback);
+	this.command(value ? 'on' : 'off', callback);
 }
 
 SmartThingsAccessory.prototype.getOn = function (callback) {
 	callback = callback || function () {};
-	this.currentValue('switch', function (err, value) {
-		if (err) {
-			callback(err);
-			return;
+	this.currentValue('switch', function (error, value) {
+		if (error) {
+			callback(error);
 		}
-
-		switch (value) {
-		case 'on':
-			callback(null, 1);
-			break;
-		default:
-			callback(null, 0);
+		else {
+			switch (value) {
+			case 'on':
+				callback(null, true);
+				break;
+			default:
+				callback(null, false);
+			}
 		}
 	});
 }
@@ -182,6 +212,65 @@ SmartThingsAccessory.prototype.getSaturation = function (callback) {
 	this.currentValue('saturation', callback);
 }
 
+SmartThingsAccessory.prototype.getCurrentDoorState = function (callback) {
+	callback = callback || function () {};
+	this.currentValue('status', function (error, value) {
+		if (error) {
+			callback(error);
+		}
+		else {
+			switch (value) {
+			case 'open':
+				callback(null, Characteristic.CurrentDoorState.OPEN);
+				break;
+			case 'opening':
+				callback(null, Characteristic.CurrentDoorState.OPENING);
+				break;
+			case 'closing':
+				callback(null, Characteristic.CurrentDoorState.CLOSING);
+				break;
+			case 'closed':
+				callback(null, Characteristic.CurrentDoorState.CLOSED);
+				break;
+			default:
+				callback(null, Characteristic.CurrentDoorState.STOPPED);
+			}
+		}
+	});
+}
+
+SmartThingsAccessory.prototype.getTargetDoorState = function (callback) {
+	var self = this;
+	callback = callback || function () {};
+	this.currentValue('status', function (error, status) {
+		if (error) {
+			callback(error);
+		}
+		else {
+			switch (status) {
+			case Characteristic.CurrentDoorState.OPENING:
+			case Characteristic.CurrentDoorState.OPEN:
+				callback(null, Characteristic.TargetDoorState.OPEN);
+				break;
+			default:
+				callback(null, Characteristic.TargetDoorState.CLOSED);
+				break;
+			}
+		}
+	});
+}
+
+SmartThingsAccessory.prototype.setTargetDoorState = function (value, callback) {
+	switch (value) {
+	case Characteristic.TargetDoorState.OPEN:
+		this.command('open', callback);
+		break;
+	case Characteristic.TargetDoorState.CLOSED:
+		this.command('close', callback);
+		break;
+	}
+}
+
 SmartThingsAccessory.prototype.getCurrentTemperature = function (callback) {
 	this.currentValue('temperature', callback);
 }
@@ -189,9 +278,9 @@ SmartThingsAccessory.prototype.getCurrentTemperature = function (callback) {
 SmartThingsAccessory.prototype.getTargetTemperature = function (callback) {
 	var self = this;
 	callback = callback || function () {};
-	this.getTargetHeatingCoolingState(function (err, mode) {
-		if (err) {
-			callback(err);
+	this.getTargetHeatingCoolingState(function (error, mode) {
+		if (error) {
+			callback(error);
 		}
 		else {
 			switch (mode) {
@@ -215,9 +304,9 @@ SmartThingsAccessory.prototype.getTargetTemperature = function (callback) {
 SmartThingsAccessory.prototype.setTargetTemperature = function (value, callback) {
 	var self = this;
 	callback = callback || function () {};
-	this.getTargetHeatingCoolingState(function (err, mode) {
-		if (err) {
-			callback(err);
+	this.getTargetHeatingCoolingState(function (error, mode) {
+		if (error) {
+			callback(error);
 		}
 		else {
 			switch (mode) {
@@ -240,9 +329,9 @@ SmartThingsAccessory.prototype.setTargetTemperature = function (value, callback)
 
 SmartThingsAccessory.prototype.getCurrentHeatingCoolingState = function (callback) {
 	callback = callback || function () {};
-	this.currentValue('thermostatOperatingState', function (err, mode) {
-		if (err) {
-			callback(err);
+	this.currentValue('thermostatOperatingState', function (error, mode) {
+		if (error) {
+			callback(error);
 		}
 		else {
 			switch (mode) {
@@ -261,9 +350,9 @@ SmartThingsAccessory.prototype.getCurrentHeatingCoolingState = function (callbac
 
 SmartThingsAccessory.prototype.getTargetHeatingCoolingState = function (callback) {
 	callback = callback || function () {};
-	this.currentValue('thermostatMode', function (err, mode) {
-		if (err) {
-			callback(err);
+	this.currentValue('thermostatMode', function (error, mode) {
+		if (error) {
+			callback(error);
 		}
 		else {
 			switch (mode) {
@@ -334,8 +423,8 @@ SmartThingsAccessory.prototype.command = function (command, value, callback) {
 		url: url,
 		json: true,
 		body: body
-	}, function (err, response, body) {
-		if (err) {
+	}, function (error, response, body) {
+		if (error) {
 			self.log(self.name + ' error sending command: ' + url);
 			callback('error sending command');
 		}
@@ -352,11 +441,12 @@ SmartThingsAccessory.prototype.currentValue = function (attribute, callback) {
 
 	request.get({
 		url: url
-	}, function (err, response, body) {
-		if (err || response.statusCode !== 200) {
+	}, function (error, response, body) {
+		if (error || response.statusCode !== 200) {
 			self.log(self.name + ' error getting attribute: ' + url);
 			callback('error getting attribute');
-		} else {
+		}
+		else {
 			var obj = JSON.parse(body);
 			if (obj.currentValue) {
 				callback(null, obj.currentValue);
