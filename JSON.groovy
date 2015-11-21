@@ -1,17 +1,20 @@
 /**
- *  JSON
+ * JSON
  *
- *  Copyright 2015 Jesse Newland
+ * Copyright 2015 Jesse Newland
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *  in compliance with the License. You may obtain a copy of the License at:
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at:
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *  for the specific language governing permissions and limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ * for the specific language governing permissions and limitations under the License.
  *
+ * Originally by jnewland
+ *
+ * Updated by jason0x43, 2015
  */
 definition(
     name: "JSON API",
@@ -55,6 +58,7 @@ def copyConfig() {
 			input "doors", "capability.doorControl", title: "Doors", multiple: true, required: false
 			input "hues", "capability.colorControl", title: "Hues", multiple: true, required: false
 			input "thermostats", "capability.thermostat", title: "Thermostats", multiple: true, required: false
+			input "lightSensors", "capability.illuminanceMeasurement", title: "Luminance Sensors", multiple: true, required: false
 		}
 
 		section() {
@@ -113,7 +117,10 @@ def deviceAttributeMap(device, type) {
 def authorizedDevices() {
 	[
 		switches: switches,
-		doors: doors
+		doors: doors,
+		hues: hues,
+		thermostats: thermostats,
+		lightSensors: lightSensors
 	]
 }
 
