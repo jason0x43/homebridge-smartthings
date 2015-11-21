@@ -10,7 +10,7 @@ Installation
 
 1. Install homebridge with `npm install -g homebridge`
 2. Install this version of homebridge-smartthings with `npm install -g https://github.com/jason0x43/homebridge-smartthings`
-3. Install the JSON API SmartThings app in your account at `graph.ide.smartthings.com`
+3. Install the [JSON API SmartThings app](JSON.groovy) in your account at `graph.ide.smartthings.com`
 3. Update your config file; see the sample snippet below
 
 Configuration
